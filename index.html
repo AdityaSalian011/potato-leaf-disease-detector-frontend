@@ -466,44 +466,9 @@
       document.getElementById('errorBox').style.display    = 'none';
       document.getElementById('recommendSection').style.display = 'none';
 
-      // ─────────────────────────────────────────────────────────
-      // BACKEND INTEGRATION — HOW TO CONNECT YOUR PYTHON MODEL
-      // ─────────────────────────────────────────────────────────
-      //
-      //  STEP A: Set the URL below to your prediction endpoint.
-      //    Local dev:   "http://localhost:8000/predict"
-      //    Deployed:    "https://your-app.onrender.com/predict"
-      //
-      //  STEP B: Your backend (FastAPI example) should look like:
-      //
-      //    from fastapi import FastAPI, File, UploadFile
-      //    from fastapi.middleware.cors import CORSMiddleware
-      //    from PIL import Image
-      //    import io
-      //
-      //    app = FastAPI()
-      //    app.add_middleware(CORSMiddleware, allow_origins=["*"],
-      //                       allow_methods=["*"], allow_headers=["*"])
-      //
-      //    model = load_model()  # call your load_model() once at startup
-      //
-      //    @app.post("/predict")
-      //    async def predict_route(image: UploadFile = File(...)):
-      //        img    = Image.open(io.BytesIO(await image.read())).convert("RGB")
-      //        tensor = apply_transformer(img)
-      //        name, conf = predict(model, tensor)
-      //        return {"class": name, "confidence": float(conf)}
-      //
-      //  STEP C: The frontend sends:
-      //    FormData with key "image" containing the image File object.
-      //
-      //  STEP D: Expected JSON response:
-      //    { "class": "Early Blight", "confidence": 0.923 }
-      //
-      // ─────────────────────────────────────────────────────────
-      // const API_URL = "https://AdityaSalian-potato-leaf-disease-detector-backend.hf.space/predict";   
+      const API_URL = "https://AdityaSalian-Potato-Detector.hf.space/predict";   
 
-      const API_URL = 'http://localhost:8000/predict'
+      // const API_URL = 'http://localhost:8000/predict'
 
       try {
         const form = new FormData();
