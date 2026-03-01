@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🥔 Potato Leaf Disease Detector</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Source Sans 3"', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0e1117; color: #fafafa; font-family: 'Source Sans 3', sans-serif; margin: 0; min-height: 100vh; }
+
+    /* ── Scrollbar ────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e2130; }
+    ::-webkit-scrollbar-thumb { background: #3d4156; border-radius: 99px; }
+
+    /* ── Sidebar ──────────────────────────────────────────── */
+    #sidebar {
+      width: 274px; background: #262730;
+      border-right: 1px solid #3a3d4d;
+      position: fixed; left: 0; top: 0; bottom: 0;
+      overflow-y: auto; z-index: 40;
+      padding: 1.5rem 1.25rem;
+      display: flex; flex-direction: column; gap: 0;
+      transition: transform 0.26s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── Sidebar overlay ──────────────────────────────────── */
+    #sbOverlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 39;
+    }
+    #sbOverlay.on { display: block; }
+
+    /* ── Main ─────────────────────────────────────────────── */
+    #main {
+      margin-left: 274px;
+      padding: 2.5rem 3.5rem;
+      max-width: 900px;
+    }
+
+    /* ── Divider ──────────────────────────────────────────── */
+    .divider { height: 1px; background: #3a3d4d; margin: 1.25rem 0; }
+
+    /* ── Drop zone ────────────────────────────────────────── */
+    #dropZone {
+      background: #1e2130; border: 1px solid #3a3d4d;
+      border-radius: 0.4rem; padding: 1.1rem 1.25rem;
+      display: flex; align-items: center; gap: 1rem;
+      cursor: pointer; flex-wrap: wrap;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #dropZone:hover, #dropZone.over { border-color: #ff4b4b; background: #1a1d2a; }
+
+    /* ── Buttons ──────────────────────────────────────────── */
+    .st-btn-outline {
+      border: 1px solid #ff4b4b; color: #ff4b4b; background: transparent;
+      border-radius: 0.35rem; padding: 0.4rem 1.1rem;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .st-btn-outline:hover { background: rgba(255,75,75,0.12); }
+
+    .st-btn-primary {
+      background: #ff4b4b; color: #fff; border: none;
+      border-radius: 0.35rem; padding: 0.55rem 1.5rem;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: background 0.2s, opacity 0.2s; width: 100%; margin-top: 0.65rem;
+    }
+    .st-btn-primary:disabled { opacity: 0.38; cursor: not-allowed; }
+    .st-btn-primary:not(:disabled):hover { background: #e03a3a; }
+
+    /* ── Alert boxes ─────────────────────────────────────── */
+    .st-info    { background: #162e4a; border-left: 4px solid #1c83e1; border-radius: 0.35rem; padding: 0.7rem 1rem; }
+    .st-success { background: #163322; border-left: 4px solid #21c55d; border-radius: 0.35rem; padding: 0.7rem 1rem; }
+    .st-warning { background: #2d2109; border-left: 4px solid #fbbf24; border-radius: 0.35rem; padding: 0.7rem 1rem; }
+    .st-error   { background: #2d0e0e; border-left: 4px solid #f87171; border-radius: 0.35rem; padding: 0.7rem 1rem; }
+
+    /* ── Metric card ─────────────────────────────────────── */
+    .st-metric {
+      background: #1e2130; border: 1px solid #3a3d4d;
+      border-radius: 0.5rem; padding: 1rem 1.25rem;
+    }
+    .conf-track { background: #3a3d4d; border-radius: 99px; height: 6px; overflow: hidden; margin-top: 0.4rem; }
+    .conf-fill  { height: 100%; border-radius: 99px; transition: width 0.85s cubic-bezier(.22,1,.36,1); }
+
+    /* ── Spinner ─────────────────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 3px solid #3a3d4d; border-top-color: #ff4b4b;
+      animation: spin 0.85s linear infinite;
+    }
+
+    /* ── Fade in ─────────────────────────────────────────── */
+    @keyframes fadeup { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .fadein { animation: fadeup 0.35s ease both; }
+
+    /* ── Hamburger ───────────────────────────────────────── */
+    #menuBtn {
+      display: none; position: fixed; top: 0.75rem; left: 0.75rem; z-index: 50;
+      background: #262730; border: 1px solid #3a3d4d; border-radius: 0.4rem;
+      padding: 0.45rem 0.55rem; cursor: pointer; color: #fafafa;
+    }
+
+    /* ── Two-column grid ─────────────────────────────────── */
+    .two-col {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1.25rem;
+    }
+
+    /* ── Mobile ─────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      #sidebar { transform: translateX(-100%); }
+      #sidebar.open { transform: translateX(0); }
+      #main { margin-left: 0; padding: 1rem 1rem 2.5rem; padding-top: 3.5rem; }
+      #menuBtn { display: block; }
+      .two-col { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      #dropZone { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════ HAMBURGER (mobile) -->
+  <button id="menuBtn" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/>
+    </svg>
+  </button>
+
+  <!-- ═══════════════════════════════════ OVERLAY (mobile) -->
+  <div id="sbOverlay" onclick="toggleSidebar()"></div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       SIDEBAR — exact replica of with st.sidebar: block
+  ═══════════════════════════════════════════════════════ -->
+  <aside id="sidebar">
+
+    <!-- st.title("ℹ️ About This App") -->
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.9rem;">
+      <span style="font-size:1.3rem;">ℹ️</span>
+      <span style="font-size:1.1rem;font-weight:700;line-height:1.3;">About This App</span>
+    </div>
+
+    <!-- st.write(...) -->
+    <p style="font-size:0.875rem;color:#a3aab8;line-height:1.65;margin:0 0 0.2rem;">
+      This app uses a Pretrained MobileNet Model fine-tuned on the PlantVillage dataset
+      to detect diseases in potato plant leaves.
+    </p>
+
+    <!-- st.divider() -->
+    <div class="divider"></div>
+
+    <!-- st.write("**Detectable Conditions:**") -->
+    <p style="font-weight:700;margin:0 0 0.5rem;">Detectable Conditions:</p>
+    <p style="margin:0.25rem 0;font-size:0.9rem;">🟡 Early Blight</p>
+    <p style="margin:0.25rem 0;font-size:0.9rem;">🔴 Late Blight</p>
+    <p style="margin:0.25rem 0;font-size:0.9rem;">🟢 Healthy Leaf</p>
+
+    <div class="divider"></div>
+
+    <!-- st.write("**How to use:**") -->
+    <p style="font-weight:700;margin:0 0 0.5rem;">How to use:</p>
+    <p style="font-size:0.875rem;color:#a3aab8;margin:0.2rem 0;">1. Upload a clear photo of a potato leaf.</p>
+    <p style="font-size:0.875rem;color:#a3aab8;margin:0.2rem 0;">2. Wait for the prediction.</p>
+    <p style="font-size:0.875rem;color:#a3aab8;margin:0.2rem 0;">3. Follow the recommended action.</p>
+
+    <div class="divider"></div>
+
+    <!-- st.caption("S.Y.C.S | Community Engagement Project") -->
+    <p style="font-size:0.75rem;color:#555870;text-align:center;margin-top:auto;padding-top:0.5rem;">
+      S.Y.C.S | Community Engagement Project
+    </p>
+
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAIN CONTENT
+  ═══════════════════════════════════════════════════════ -->
+  <main id="main">
+
+    <!-- STEP 6 — st.title() -->
+    <h1 style="font-size:2.1rem;font-weight:700;margin:0 0 0.4rem;line-height:1.2;">
+      🥔 Potato Leaf Disease Detector
+    </h1>
+
+    <!-- st.write() intro -->
+    <p style="color:#a3aab8;font-size:1rem;margin:0 0 0.25rem;">
+      Upload a photo of a potato leaf and the AI model will detect whether it is
+      <strong style="color:#fafafa;">Healthy</strong>, has
+      <strong style="color:#fbbf24;">Early Blight</strong>, or
+      <strong style="color:#f87171;">Late Blight</strong>.
+    </p>
+
+    <!-- st.divider() -->
+    <div class="divider"></div>
+
+    <!-- STEP 7 — st.file_uploader() label -->
+    <p style="font-size:0.88rem;color:#a3aab8;margin:0 0 0.4rem;">📤 Upload a potato Leaf Image</p>
+
+    <!-- Drop zone (mirrors Streamlit's uploader widget) -->
+    <div
+      id="dropZone"
+      onclick="document.getElementById('fileInput').click()"
+      ondragover="onDragOver(event)"
+      ondragleave="onDragLeave()"
+      ondrop="onDrop(event)"
+    >
+      <!-- Cloud upload icon -->
+      <svg style="flex-shrink:0;color:#a3aab8;" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M12 16.5V9.75m0 0-3 3m3-3 3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 5.75 5.75 0 011.839 11.095H6.75z"/>
+      </svg>
+      <div style="flex:1;min-width:0;">
+        <p id="dropLabel" style="margin:0;font-size:0.95rem;font-weight:500;">Drag and drop file here</p>
+        <p style="margin:0;font-size:0.78rem;color:#555870;">Limit 200MB per file &nbsp;·&nbsp; JPG, JPEG, PNG</p>
+      </div>
+      <!-- Browse files — st-style outline button -->
+      <button class="st-btn-outline" onclick="event.stopPropagation();document.getElementById('fileInput').click()">
+        Browse files
+      </button>
+    </div>
+
+    <!-- Camera / Gallery button — especially useful on mobile -->
+    <!-- On mobile, capture="environment" opens the rear camera directly -->
+    <button
+      class="st-btn-outline"
+      style="margin-top:0.6rem;display:inline-flex;align-items:center;gap:0.4rem;"
+      onclick="document.getElementById('cameraInput').click()"
+    >
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"/>
+      </svg>
+      Take a Photo (Camera)
+    </button>
+
+    <!-- Hidden inputs -->
+    <!-- Browse from gallery / file system -->
+    <input id="fileInput"   type="file" accept="image/jpeg,image/png,image/jpg" style="display:none" onchange="handleFile(event)"/>
+    <!-- Opens rear camera on mobile (capture="environment") -->
+    <input id="cameraInput" type="file" accept="image/*" capture="environment"  style="display:none" onchange="handleFile(event)"/>
+
+    <!-- ═══════ STEP 8 — if uploaded_file: ═══════ -->
+    <div id="uploadedSection" style="display:none;" class="fadein">
+
+      <!-- Analyse button (Streamlit runs automatically, here we add a button) -->
+      <button class="st-btn-primary" id="analyseBtn" onclick="analyseImage()">
+        🔍 Analyse Leaf
+      </button>
+
+      <!-- st.columns(2) — col1: image, col2: result -->
+      <div class="two-col">
+
+        <!-- col1: st.subheader + st.image() -->
+        <div>
+          <p style="font-size:1rem;font-weight:600;margin:0 0 0.5rem;">📷 Uploaded Image</p>
+          <img id="previewImg" src="" alt="Uploaded leaf"
+            style="width:100%;border-radius:0.4rem;border:1px solid #3a3d4d;object-fit:contain;max-height:300px;background:#1e2130;"/>
+        </div>
+
+        <!-- col2: st.subheader + spinner + results -->
+        <div>
+          <p style="font-size:1rem;font-weight:600;margin:0 0 0.5rem;">🔍 Prediction Result</p>
+
+          <!-- st.spinner("Analyzing leaf... please wait") -->
+          <div id="spinnerBox" style="display:none;flex-direction:column;align-items:center;padding:2rem 0;gap:0.65rem;">
+            <div class="spinner"></div>
+            <p style="color:#a3aab8;font-size:0.875rem;margin:0;">Analyzing leaf… please wait</p>
+          </div>
+
+          <!-- Result output (shown after prediction) -->
+          <div id="resultBox" style="display:none;" class="fadein">
+
+            <!-- st.success / st.warning / st.error — class name badge -->
+            <div id="classAlert" style="margin-bottom:0.75rem;font-size:0.95rem;font-weight:700;"></div>
+
+            <!-- st.metric(label="Confidence Score", value=...) -->
+            <div class="st-metric">
+              <p style="font-size:0.78rem;color:#a3aab8;margin:0 0 0.2rem;text-transform:uppercase;letter-spacing:0.05em;">
+                Confidence Score
+              </p>
+              <p id="confValue" style="font-size:2rem;font-weight:700;margin:0;line-height:1.2;"></p>
+              <div class="conf-track">
+                <div id="confFill" class="conf-fill" style="width:0%;background:#ff4b4b;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- st.error() for exceptions -->
+          <div id="errorBox" style="display:none;" class="st-error fadein">
+            <p style="margin:0;font-size:0.875rem;">
+              ⚠️ <span id="errorMsg"></span>
+            </p>
+            <p style="margin:0.4rem 0 0;font-size:0.8rem;color:#a3aab8;">
+              💡 Make sure 'mobilenet_potato_leaf_detector.pt' is available or check your Google Drive file ID.
+            </p>
+          </div>
+
+        </div>
+      </div><!-- /two-col -->
+
+      <!-- ═══════ STEP 9 — Recommendations ═══════ -->
+      <div id="recommendSection" style="display:none;" class="fadein">
+        <div class="divider"></div>
+        <p style="font-size:1rem;font-weight:600;margin:0 0 0.65rem;">📋 Recommended Action for Farmer</p>
+        <div id="recommendCard" style="border-radius:0.4rem;padding:0.75rem 1rem;">
+          <p id="recommendTitle" style="font-weight:700;margin:0 0 0.5rem;font-size:0.95rem;"></p>
+          <ul id="recommendList"
+            style="margin:0;padding-left:1.2rem;font-size:0.9rem;color:#d1d5db;line-height:1.8;">
+          </ul>
+        </div>
+      </div>
+
+    </div><!-- /uploadedSection -->
+
+    <!-- else: st.info — default state, no file uploaded -->
+    <div id="noFileInfo" class="st-info" style="margin-top:0.9rem;">
+      <p style="margin:0;font-size:0.9rem;color:#93c5fd;">
+        👆 Please upload a potato leaf image above to get started.
+      </p>
+    </div>
+
+  </main>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       JAVASCRIPT
+  ═══════════════════════════════════════════════════════ -->
+  <script>
+
+    // ── Sidebar toggle (mobile hamburger) ──────────────────────
+    function toggleSidebar() {
+      const sb = document.getElementById('sidebar');
+      const ov = document.getElementById('sbOverlay');
+      const isOpen = sb.classList.toggle('open');
+      ov.classList.toggle('on', isOpen);
+    }
+
+    // ── CLASS META ─────────────────────────────────────────────
+    // Mirrors CLASS_NAMES + RECOMMENDATIONS dict from Python file
+    const CLASS_META = {
+      "Healthy": {
+        alertClass:  "st-success",
+        alertIcon:   "✅",
+        cardStyle:   "background:#163322;border-left:4px solid #21c55d;",
+        confColor:   "#21c55d",
+        titleLabel:  "✅ Leaf is Healthy! — Tips to Keep it Healthy:",
+        tips: [
+          "Continue regular watering and fertilization.",
+          "Monitor weekly for early signs of disease.",
+          "Maintain proper plant spacing.",
+          "Use neem oil spray as a natural preventive measure.",
+        ],
+      },
+      "Early Blight": {
+        alertClass:  "st-warning",
+        alertIcon:   "⚠️",
+        cardStyle:   "background:#2d2109;border-left:4px solid #fbbf24;",
+        confColor:   "#fbbf24",
+        titleLabel:  "⚠️ Early Blight Detected! — Recommended Actions:",
+        tips: [
+          "Remove and destroy infected leaves immediately.",
+          "Apply copper-based fungicide spray.",
+          "Avoid overhead watering; water at the base of the plant.",
+          "Ensure proper spacing between plants for air circulation.",
+        ],
+      },
+      "Late Blight": {
+        alertClass:  "st-error",  
+        alertIcon:   "🚨",
+        cardStyle:   "background:#2d0e0e;border-left:4px solid #f87171;",
+        confColor:   "#f87171",
+        titleLabel:  "🚨 Late Blight Detected! (Serious — Act Quickly)",
+        tips: [
+          "Remove and burn all infected plant parts immediately.",
+          "Apply Mancozeb or Chlorothalonil fungicide.",
+          "Do NOT compost infected material.",
+          "Consult your local agricultural officer if spreading rapidly.",
+        ],
+      },
+      'Unable to predict leaf status': {
+        alertClass:  "st-warning",
+        alertIcon:   "⚠️",
+        cardStyle:   "background:#2d2109;border-left:4px solid #fbbf24;",
+        confColor:   "#fbbf24",
+        titleLabel:  "⚠️ The model isn't confident enough to make a prediction! — Recommended Actions:",
+        tips: [
+          "📸 Take a photo of a single tomato leaf only.",
+          "🌿 Make sure the entire leaf is visible in the frame.",
+          "☀️ Use good lighting — avoid dark or shadowy conditions.",
+          "🔍 Hold the camera close and steady for a sharp, clear image.",
+          "🚫 Avoid backgrounds with many other leaves or plants.",
+        ],
+      }
+    };
+
+    // ── Drag & Drop ────────────────────────────────────────────
+    function onDragOver(e) {
+      e.preventDefault();
+      document.getElementById('dropZone').classList.add('over');
+    }
+    function onDragLeave() {
+      document.getElementById('dropZone').classList.remove('over');
+    }
+    function onDrop(e) {
+      e.preventDefault();
+      document.getElementById('dropZone').classList.remove('over');
+      const f = e.dataTransfer.files[0];
+      if (f && f.type.startsWith('image/')) processFile(f);
+    }
+
+    // ── File handler ───────────────────────────────────────────
+    function handleFile(ev) {
+      const f = ev.target.files[0];
+      if (f) processFile(f);
+    }
+
+    let selectedFile = null;
+
+    function processFile(file) {
+      selectedFile = file;
+
+      // Preview image
+      const reader = new FileReader();
+      reader.onload = e => { document.getElementById('previewImg').src = e.target.result; };
+      reader.readAsDataURL(file);
+
+      // Update drop-zone label with filename
+      document.getElementById('dropLabel').textContent = `📎 ${file.name}`;
+
+      // Show the if-block section, hide the else info box
+      document.getElementById('noFileInfo').style.display      = 'none';
+      document.getElementById('uploadedSection').style.display  = 'block';
+
+      // Reset previous prediction state
+      document.getElementById('spinnerBox').style.display        = 'none';
+      document.getElementById('resultBox').style.display         = 'none';
+      document.getElementById('errorBox').style.display          = 'none';
+      document.getElementById('recommendSection').style.display   = 'none';
+    }
+
+    // ── ANALYSE IMAGE ──────────────────────────────────────────
+    async function analyseImage() {
+      if (!selectedFile) return;
+
+      // Show spinner while processing (mirrors st.spinner)
+      document.getElementById('analyseBtn').disabled      = true;
+      document.getElementById('spinnerBox').style.display  = 'flex';
+      document.getElementById('resultBox').style.display   = 'none';
+      document.getElementById('errorBox').style.display    = 'none';
+      document.getElementById('recommendSection').style.display = 'none';
+
+      // ─────────────────────────────────────────────────────────
+      // BACKEND INTEGRATION — HOW TO CONNECT YOUR PYTHON MODEL
+      // ─────────────────────────────────────────────────────────
+      //
+      //  STEP A: Set the URL below to your prediction endpoint.
+      //    Local dev:   "http://localhost:8000/predict"
+      //    Deployed:    "https://your-app.onrender.com/predict"
+      //
+      //  STEP B: Your backend (FastAPI example) should look like:
+      //
+      //    from fastapi import FastAPI, File, UploadFile
+      //    from fastapi.middleware.cors import CORSMiddleware
+      //    from PIL import Image
+      //    import io
+      //
+      //    app = FastAPI()
+      //    app.add_middleware(CORSMiddleware, allow_origins=["*"],
+      //                       allow_methods=["*"], allow_headers=["*"])
+      //
+      //    model = load_model()  # call your load_model() once at startup
+      //
+      //    @app.post("/predict")
+      //    async def predict_route(image: UploadFile = File(...)):
+      //        img    = Image.open(io.BytesIO(await image.read())).convert("RGB")
+      //        tensor = apply_transformer(img)
+      //        name, conf = predict(model, tensor)
+      //        return {"class": name, "confidence": float(conf)}
+      //
+      //  STEP C: The frontend sends:
+      //    FormData with key "image" containing the image File object.
+      //
+      //  STEP D: Expected JSON response:
+      //    { "class": "Early Blight", "confidence": 0.923 }
+      //
+      // ─────────────────────────────────────────────────────────
+      // const API_URL = "https://AdityaSalian-potato-leaf-disease-detector-backend.hf.space/predict";   
+
+      const API_URL = 'http://localhost:8000/predict'
+
+      try {
+        const form = new FormData();
+        form.append("image", selectedFile);   // "image" must match UploadFile param name
+
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: form,
+          // Uncomment if backend needs auth:
+          // headers: { "Authorization": "Bearer YOUR_TOKEN" },
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const data = await res.json();
+        // data = { "class": "Healthy", "confidence": 0.98 }
+        showResult(data.class, data.confidence);
+
+      } catch (err) {
+        // ── MOCK BLOCK — DELETE when backend is connected ─────────
+        // Simulates a random prediction so you can preview the UI now.
+        console.warn("Backend unreachable — mock response active.", err);
+        const classes  = ["Healthy", "Early Blight", "Late Blight"];
+        const mockCls  = classes[Math.floor(Math.random() * 3)];
+        const mockConf = 0.68 + Math.random() * 0.31;
+        showResult(mockCls, mockConf);
+        // ── END MOCK BLOCK ────────────────────────────────────────
+      }
+    }
+
+    // ── RENDER RESULT ──────────────────────────────────────────
+    // Mirrors st.success/warning/error + st.metric + st.write(RECOMMENDATIONS)
+    function showResult(className, confidence) {
+      const meta = CLASS_META[className] || CLASS_META["Healthy"];
+
+      // Hide spinner, re-enable button
+      document.getElementById('spinnerBox').style.display = 'none';
+      document.getElementById('analyseBtn').disabled = false;
+
+      // Class alert box
+      const alert = document.getElementById('classAlert');
+      alert.className = meta.alertClass;
+      alert.textContent = `${meta.alertIcon} ${className}`;
+
+      // Confidence metric
+      const pct = (confidence * 100).toFixed(2);
+      document.getElementById('confValue').textContent = `${pct}%`;
+
+      // Confidence bar
+      const fill = document.getElementById('confFill');
+      fill.style.transition = 'none';
+      fill.style.width = '0%';
+      requestAnimationFrame(() => {
+        fill.style.transition = 'width 0.85s cubic-bezier(.22,1,.36,1)';
+        fill.style.width = `${pct}%`;
+        fill.style.background = meta.confColor;
+      });
+
+      document.getElementById('resultBox').style.display = 'block';
+
+      // Recommendation card
+      const card = document.getElementById('recommendCard');
+      card.style.cssText = `border-radius:0.4rem;padding:0.75rem 1rem;${meta.cardStyle}`;
+      document.getElementById('recommendTitle').textContent = meta.titleLabel;
+
+      const list = document.getElementById('recommendList');
+      list.innerHTML = '';
+      meta.tips.forEach(tip => {
+        const li = document.createElement('li');
+        li.textContent = tip;
+        list.appendChild(li);
+      });
+
+      document.getElementById('recommendSection').style.display = 'block';
+      document.getElementById('recommendSection').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+  </script>
+
+</body>
+</html>
